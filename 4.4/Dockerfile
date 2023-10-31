@@ -9,19 +9,25 @@ FROM ubuntu:focal
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
 RUN set -eux; \
 	groupadd --gid 999 --system mongodb; \
-	useradd --uid 999 --system --gid mongodb --home-dir /data/db mongodb; \
+	useradd --uid 999 --system --gid mongodb --home-dir /data/db --shell /bin/bash mongodb; \
 	mkdir -p /data/db /data/configdb; \
 	chown -R mongodb:mongodb /data/db /data/configdb
 
 RUN set -eux; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
-		ca-certificates \
-		gnupg \
-		jq \
-		numactl \
-		procps \
+	ca-certificates \
+	gnupg \
+	jq \
+	numactl \
+	procps \
 	; \
+	rm -rf /var/lib/apt/lists/*
+
+# Install OpenSSH server
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends openssh-server; \
 	rm -rf /var/lib/apt/lists/*
 
 # grab gosu for easy step-down from root (https://github.com/tianon/gosu/releases)
@@ -34,7 +40,7 @@ RUN set -ex; \
 	savedAptMark="$(apt-mark showmanual)"; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
-		wget \
+	wget \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 	\
@@ -48,13 +54,13 @@ RUN set -ex; \
 	rm -rf "$GNUPGHOME" /usr/local/bin/gosu.asc; \
 	\
 	wget -O /js-yaml.js "https://github.com/nodeca/js-yaml/raw/${JSYAML_VERSION}/dist/js-yaml.js"; \
-# TODO some sort of download verification here
+	# TODO some sort of download verification here
 	\
 	apt-mark auto '.*' > /dev/null; \
 	apt-mark manual $savedAptMark > /dev/null; \
 	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
 	\
-# smoke test
+	# smoke test
 	chmod +x /usr/local/bin/gosu; \
 	gosu --version; \
 	gosu nobody true
@@ -65,7 +71,7 @@ RUN set -ex; \
 	export GNUPGHOME="$(mktemp -d)"; \
 	set -- '20691EEC35216C63CAF66CE1656408E390CFB1F5'; \
 	for key; do \
-		gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
+	gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
 	done; \
 	mkdir -p /etc/apt/keyrings; \
 	gpg --batch --export "$@" > /etc/apt/keyrings/mongodb.gpg; \
@@ -88,15 +94,15 @@ ENV MONGO_VERSION 4.4.25
 # 09/26/2023, https://github.com/mongodb/mongo/tree/3e18c4c56048ddf22a6872edc111b542521ad1d5
 
 RUN set -x \
-# installing "mongodb-enterprise" pulls in "tzdata" which prompts for input
+	# installing "mongodb-enterprise" pulls in "tzdata" which prompts for input
 	&& export DEBIAN_FRONTEND=noninteractive \
 	&& apt-get update \
 	&& apt-get install -y \
-		${MONGO_PACKAGE}=$MONGO_VERSION \
-		${MONGO_PACKAGE}-server=$MONGO_VERSION \
-		${MONGO_PACKAGE}-shell=$MONGO_VERSION \
-		${MONGO_PACKAGE}-mongos=$MONGO_VERSION \
-		${MONGO_PACKAGE}-tools=$MONGO_VERSION \
+	${MONGO_PACKAGE}=$MONGO_VERSION \
+	${MONGO_PACKAGE}-server=$MONGO_VERSION \
+	${MONGO_PACKAGE}-shell=$MONGO_VERSION \
+	${MONGO_PACKAGE}-mongos=$MONGO_VERSION \
+	${MONGO_PACKAGE}-tools=$MONGO_VERSION \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& rm -rf /var/lib/mongodb \
 	&& mv /etc/mongod.conf /etc/mongod.conf.orig
